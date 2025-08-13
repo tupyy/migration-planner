@@ -1,0 +1,125 @@
+/*
+ * Migration Planner Authorization Schema
+ * 
+ * This schema defines the authorization model for the Migration Planner application
+ * using SpiceDB's Zanzibar-style authorization system.
+ * 
+ * Key Concepts:
+ * - Users can be members of organizations
+ * - Resources (assessments, sources) can have different relationship types
+ * - Permissions are derived from relationships and organizational membership
+ * 
+ * Hierarchy:
+ * - super_org: Top-level organization with elevated privileges
+ * - org: Regular organization for grouping users
+ * - user: Individual users who can access resources
+ */
+
+/*
+ * User Definition
+ * 
+ * Represents individual users in the system.
+ * Users can:
+ * - Be members of organizations (org, super_org)
+ * - Have direct relationships with resources (owner, editor, reader)
+ */
+definition user {}
+
+/*
+ * Super Organization Definition
+ * 
+ * Represents a top-level organization with elevated privileges.
+ * Super organizations can:
+ * - Have user members
+ * - Grant elevated access to resources through membership
+ * 
+ * Use cases:
+ * - Administrative organizations
+ * - Platform-level access control
+ */
+definition super_org {
+    relation member: user
+}
+
+/*
+ * Organization Definition
+ * 
+ * Represents a regular organization for grouping users.
+ * Organizations can:
+ * - Have user members
+ * - Grant shared access to resources through membership
+ * 
+ * Use cases:
+ * - Team-based access control
+ * - Department-level resource sharing
+ */
+definition org {
+	relation member: user
+}
+
+/*
+ * Source Definition
+ * 
+ * Represents a migration source (e.g., VMware vCenter, OpenStack).
+ * 
+ * Relationships:
+ * - owner: Full control (user or super_org member)
+ * - editor: Read/write access (user or org member)
+ * 
+ * Permission Model:
+ * - read: Can view source details (owner + editor)
+ * - edit: Can modify source configuration (owner + editor)  
+ * - delete: Can remove source (owner only)
+ * 
+ * Access Patterns:
+ * - Direct user assignment for specific access
+ * - Organizational membership for team-based access
+ * - Super org membership for administrative access
+ */
+definition source {
+    relation owner: user | super_org#member
+    relation editor: user | org#member
+
+    permission read = owner + editor
+    permission edit = owner + editor
+    permission delete = owner
+}
+
+/*
+ * Assessment Definition
+ * 
+ * Represents a migration assessment containing discovered infrastructure and analysis.
+ * 
+ * Relationships:
+ * - owner: Full control (user or super_org member)
+ * - editor: Read/write/share access (user or org member)
+ * - reader: Read-only access (user or org member)
+ * 
+ * Permission Model:
+ * - read: Can view assessment data (reader + editor + owner)
+ * - edit: Can modify assessment data (editor + owner)
+ * - share: Can share assessment with others (editor + owner)
+ * - delete: Can remove assessment (owner only)
+ * 
+ * Access Patterns:
+ * - owner: Creator or designated full administrator
+ * - editor: Team members who can modify and share
+ * - reader: Stakeholders who need read-only access
+ * - Organizational membership enables team-based access
+ * 
+ * Security Notes:
+ * - Only owners can delete assessments (data protection)
+ * - Editors can share assessments (collaboration)
+ * - Readers cannot share assessments, preventing further redistribution by read-only users.
+ * - Super org members have elevated access across all assessments
+ */
+definition assessment {
+	relation owner: user | super_org#member
+	relation editor: user | org#member
+	relation reader: user | org#member
+
+	permission read = reader + owner + editor
+	permission edit = owner + editor
+	permission share = owner + editor
+	permission delete = owner
+}
