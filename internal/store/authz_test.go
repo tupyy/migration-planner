@@ -19,9 +19,9 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var _ = Describe("AuthzService", Ordered, func() {
+var _ = Describe("AuthzStore", Ordered, func() {
 	var (
-		authzSvc          *store.AuthzService
+		authzSvc          *store.AuthzStore
 		spiceDBClient     *authzed.Client
 		testUserID        string
 		testOrgID         string
@@ -58,7 +58,7 @@ var _ = Describe("AuthzService", Ordered, func() {
 			Skip("SpiceDB not reachable: " + err.Error())
 		}
 
-		authzSvc = store.NewAuthzService(spiceDBClient).(*store.AuthzService)
+		authzSvc = store.NewAuthzStore(nil, spiceDBClient).(*store.AuthzStore)
 
 		// Setup test data
 		testUserID = "user_" + uuid.New().String()[:8]

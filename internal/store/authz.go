@@ -18,14 +18,16 @@ type Authz interface {
 	HasPermissions(ctx context.Context, userID string, assessmentID string, permissions []model.Permission) (map[model.Permission]bool, error)
 }
 
-type AuthzService struct {
+type AuthzStore struct {
 	ZedToken *v1pb.ZedToken // should be public to allow unit test to use it
 	client   *authzed.Client
+	zedStore *ZedTokenStore
 }
 
-func NewAuthzService(client *authzed.Client) Authz {
-	return &AuthzService{
-		client: client,
+func NewAuthzStore(zedTokenStore *ZedTokenStore, client *authzed.Client) Authz {
+	return &AuthzStore{
+		client:   client,
+		zedStore: zedTokenStore,
 	}
 }
 
@@ -52,27 +54,32 @@ func NewAuthzService(client *authzed.Client) Authz {
 //	if err != nil {
 //	    log.Printf("Failed to write relationships: %v", err)
 //	}
-func (a *AuthzService) WriteRelationships(ctx context.Context, relationships ...model.RelationshipFn) error {
+func (a *AuthzStore) WriteRelationships(ctx context.Context, relationships ...model.RelationshipFn) error {
+	zedToken, err := a.writeRelationships(ctx, relationships...)
+	a.ZedToken = zedToken
+	return err
+}
+
+// writeRelationships is the private implementation of WriteRelationships
+func (a *AuthzStore) writeRelationships(ctx context.Context, relationships ...model.RelationshipFn) (*v1pb.ZedToken, error) {
 	relationshipsUpdate := []*v1pb.RelationshipUpdate{}
 
 	if len(relationships) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	for _, fn := range relationships {
 		relationshipsUpdate = fn(relationshipsUpdate)
 	}
 
-	zedToken, err := a.client.WriteRelationships(ctx, &v1pb.WriteRelationshipsRequest{
+	resp, err := a.client.WriteRelationships(ctx, &v1pb.WriteRelationshipsRequest{
 		Updates: relationshipsUpdate,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	a.ZedToken = zedToken.WrittenAt
-
-	return nil
+	return resp.WrittenAt, nil
 }
 
 // DeleteRelationships removes multiple relationships from SpiceDB using relationship functions.
@@ -97,11 +104,18 @@ func (a *AuthzService) WriteRelationships(ctx context.Context, relationships ...
 //	if err != nil {
 //	    log.Printf("Failed to delete relationships: %v", err)
 //	}
-func (a *AuthzService) DeleteRelationships(ctx context.Context, relationships ...model.RelationshipFn) error {
+func (a *AuthzStore) DeleteRelationships(ctx context.Context, relationships ...model.RelationshipFn) error {
+	zedToken, err := a.deleteRelationships(ctx, relationships...)
+	a.ZedToken = zedToken
+	return err
+}
+
+// deleteRelationships is the private implementation of DeleteRelationships
+func (a *AuthzStore) deleteRelationships(ctx context.Context, relationships ...model.RelationshipFn) (*v1pb.ZedToken, error) {
 	relationshipsUpdate := []*v1pb.RelationshipUpdate{}
 
 	if len(relationships) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	for _, fn := range relationships {
@@ -113,16 +127,14 @@ func (a *AuthzService) DeleteRelationships(ctx context.Context, relationships ..
 		r.Operation = v1pb.RelationshipUpdate_OPERATION_DELETE
 	}
 
-	zedToken, err := a.client.WriteRelationships(ctx, &v1pb.WriteRelationshipsRequest{
+	resp, err := a.client.WriteRelationships(ctx, &v1pb.WriteRelationshipsRequest{
 		Updates: relationshipsUpdate,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	a.ZedToken = zedToken.WrittenAt
-
-	return nil
+	return resp.WrittenAt, nil
 }
 
 // ListResources returns a list of resources (assessments) that the user has access to with their permissions.
@@ -151,7 +163,12 @@ func (a *AuthzService) DeleteRelationships(ctx context.Context, relationships ..
 //	    }
 //	    fmt.Println()
 //	}
-func (a *AuthzService) ListResources(ctx context.Context, userID string) ([]model.Resource, error) {
+func (a *AuthzStore) ListResources(ctx context.Context, userID string) ([]model.Resource, error) {
+	return a.listResources(ctx, userID)
+}
+
+// listResources is the private implementation of ListResources
+func (a *AuthzStore) listResources(ctx context.Context, userID string) ([]model.Resource, error) {
 	// try to get zedToken from ctx if any
 	token := a.getZedToken(ctx)
 
@@ -234,17 +251,12 @@ func (a *AuthzService) ListResources(ctx context.Context, userID string) ([]mode
 //	    log.Printf("Failed to check permissions: %v", err)
 //	    return
 //	}
-//
-//	if result[model.ReadPermission] {
-//	    fmt.Println("User can read the assessment")
-//	}
-//	if result[model.EditPermission] {
-//	    fmt.Println("User can edit the assessment")
-//	}
-//	if !result[model.DeletePermission] {
-//	    fmt.Println("User cannot delete the assessment")
-//	}
-func (a *AuthzService) HasPermissions(ctx context.Context, userID string, assessmentID string, permissions []model.Permission) (map[model.Permission]bool, error) {
+func (a *AuthzStore) HasPermissions(ctx context.Context, userID string, assessmentID string, permissions []model.Permission) (map[model.Permission]bool, error) {
+	return a.hasPermissions(ctx, userID, assessmentID, permissions)
+}
+
+// hasPermissions is the private implementation of HasPermissions
+func (a *AuthzStore) hasPermissions(ctx context.Context, userID string, assessmentID string, permissions []model.Permission) (map[model.Permission]bool, error) {
 	if len(permissions) == 0 {
 		return make(map[model.Permission]bool), nil
 	}
@@ -298,7 +310,7 @@ func (a *AuthzService) HasPermissions(ctx context.Context, userID string, assess
 }
 
 // getPermissions checks all possible permissions for a user on an assessment using bulk check
-func (a *AuthzService) getPermissions(ctx context.Context, userID string, assessmentID string) ([]model.Permission, error) {
+func (a *AuthzStore) getPermissions(ctx context.Context, userID string, assessmentID string) ([]model.Permission, error) {
 	token := a.getZedToken(ctx)
 
 	allPermissions := []model.Permission{
@@ -354,7 +366,7 @@ func (a *AuthzService) getPermissions(ctx context.Context, userID string, assess
 	return userPermissions, nil
 }
 
-func (a *AuthzService) getZedToken(ctx context.Context) *v1pb.ZedToken {
+func (a *AuthzStore) getZedToken(ctx context.Context) *v1pb.ZedToken {
 	// check if service has the token already
 	if a.ZedToken != nil {
 		return a.ZedToken
