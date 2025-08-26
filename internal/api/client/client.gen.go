@@ -110,6 +110,11 @@ type ClientInterface interface {
 
 	UpdateAssessment(ctx context.Context, id openapi_types.UUID, body UpdateAssessmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ShareAssessmentWithBody request with any body
+	ShareAssessmentWithBody(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ShareAssessment(ctx context.Context, id openapi_types.UUID, body ShareAssessmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetInfo request
 	GetInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -227,6 +232,30 @@ func (c *Client) UpdateAssessmentWithBody(ctx context.Context, id openapi_types.
 
 func (c *Client) UpdateAssessment(ctx context.Context, id openapi_types.UUID, body UpdateAssessmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateAssessmentRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ShareAssessmentWithBody(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewShareAssessmentRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ShareAssessment(ctx context.Context, id openapi_types.UUID, body ShareAssessmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewShareAssessmentRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -590,6 +619,53 @@ func NewUpdateAssessmentRequestWithBody(server string, id openapi_types.UUID, co
 	}
 
 	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewShareAssessmentRequest calls the generic ShareAssessment builder with application/json body
+func NewShareAssessmentRequest(server string, id openapi_types.UUID, body ShareAssessmentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewShareAssessmentRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewShareAssessmentRequestWithBody generates requests for ShareAssessment with any type of body
+func NewShareAssessmentRequestWithBody(server string, id openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/assessments/%s/share", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -1097,6 +1173,11 @@ type ClientWithResponsesInterface interface {
 
 	UpdateAssessmentWithResponse(ctx context.Context, id openapi_types.UUID, body UpdateAssessmentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAssessmentResponse, error)
 
+	// ShareAssessmentWithBodyWithResponse request with any body
+	ShareAssessmentWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ShareAssessmentResponse, error)
+
+	ShareAssessmentWithResponse(ctx context.Context, id openapi_types.UUID, body ShareAssessmentJSONRequestBody, reqEditors ...RequestEditorFn) (*ShareAssessmentResponse, error)
+
 	// GetInfoWithResponse request
 	GetInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetInfoResponse, error)
 
@@ -1264,6 +1345,33 @@ func (r UpdateAssessmentResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateAssessmentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ShareAssessmentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Status
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ShareAssessmentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ShareAssessmentResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1631,6 +1739,23 @@ func (c *ClientWithResponses) UpdateAssessmentWithResponse(ctx context.Context, 
 	return ParseUpdateAssessmentResponse(rsp)
 }
 
+// ShareAssessmentWithBodyWithResponse request with arbitrary body returning *ShareAssessmentResponse
+func (c *ClientWithResponses) ShareAssessmentWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ShareAssessmentResponse, error) {
+	rsp, err := c.ShareAssessmentWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseShareAssessmentResponse(rsp)
+}
+
+func (c *ClientWithResponses) ShareAssessmentWithResponse(ctx context.Context, id openapi_types.UUID, body ShareAssessmentJSONRequestBody, reqEditors ...RequestEditorFn) (*ShareAssessmentResponse, error) {
+	rsp, err := c.ShareAssessment(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseShareAssessmentResponse(rsp)
+}
+
 // GetInfoWithResponse request returning *GetInfoResponse
 func (c *ClientWithResponses) GetInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetInfoResponse, error) {
 	rsp, err := c.GetInfo(ctx, reqEditors...)
@@ -1992,6 +2117,67 @@ func ParseUpdateAssessmentResponse(rsp *http.Response) (*UpdateAssessmentRespons
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseShareAssessmentResponse parses an HTTP response from a ShareAssessmentWithResponse call
+func ParseShareAssessmentResponse(rsp *http.Response) (*ShareAssessmentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ShareAssessmentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Status
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest Error

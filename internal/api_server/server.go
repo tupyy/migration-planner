@@ -11,6 +11,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	oapimiddleware "github.com/oapi-codegen/nethttp-middleware"
+	"go.uber.org/zap"
+
 	api "github.com/kubev2v/migration-planner/api/v1alpha1"
 	"github.com/kubev2v/migration-planner/internal/api/server"
 	"github.com/kubev2v/migration-planner/internal/auth"
@@ -22,8 +25,6 @@ import (
 	"github.com/kubev2v/migration-planner/internal/store"
 	"github.com/kubev2v/migration-planner/pkg/log"
 	"github.com/kubev2v/migration-planner/pkg/metrics"
-	oapimiddleware "github.com/oapi-codegen/nethttp-middleware"
-	"go.uber.org/zap"
 )
 
 const (
@@ -109,6 +110,7 @@ func (s *Server) Run(ctx context.Context) error {
 	h := handlers.NewServiceHandler(
 		service.NewSourceService(s.store, s.opaValidator),
 		service.NewAssessmentService(s.store, s.opaValidator),
+		service.NewAuthzService(s.store),
 	)
 	server.HandlerFromMux(server.NewStrictHandler(h, nil), router)
 	srv := http.Server{Addr: s.cfg.Service.Address, Handler: router}

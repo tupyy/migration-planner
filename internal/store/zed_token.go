@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
-	"time"
+	"sync"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -12,39 +12,63 @@ import (
 
 const (
 	lockKeyFixed          = "zed_token_lock_key"
-	globalLockStmtFixed   = "SELECT pg_try_advisory_lock($1);"
-	sharedLockStmtFixed   = "SELECT pg_try_advisory_lock_shared($1);"
-	globalUnlockStmtFixed = "SELECT pg_advisory_unlock($1);"
-	sharedUnlockStmtFixed = "SELECT pg_advisory_unlock_shared($1);"
+	globalLockStmtFixed   = "SELECT pg_advisory_lock(%d);"
+	sharedLockStmtFixed   = "SELECT pg_advisory_lock_shared(%d);"
+	globalUnlockStmtFixed = "SELECT pg_advisory_unlock(%d);"
+	sharedUnlockStmtFixed = "SELECT pg_advisory_unlock_shared(%d);"
+	writeStmt             = "INSERT INTO zed_token VALUES (1, '%s') ON CONFLICT (id) DO UPDATE SET token = excluded.token;"
 )
 
 // ZedTokenStore is the corrected version of ZedTokenStore
 type ZedTokenStore struct {
-	lockID int32
-	db     *gorm.DB
+	lockID   int32
+	db       *gorm.DB
+	lockConn *gorm.DB   // dedicated connection for lock operations
+	mu       sync.Mutex // protects lock acquisition/release operations
 }
 
 // NewZedTokenStore creates a new ZedTokenStoreFixed (made public for testing)
 func NewZedTokenStore(db *gorm.DB) *ZedTokenStore {
 	h := fnv.New32a()
 	h.Write([]byte(lockKeyFixed))
-	return &ZedTokenStore{db: db, lockID: int32(h.Sum32())}
+
+	// Create a dedicated connection for lock operations to ensure same session
+	lockConn := createDedicatedConnection(db)
+
+	return &ZedTokenStore{
+		db:       db,
+		lockConn: lockConn,
+		lockID:   int32(h.Sum32()),
+	}
 }
 
-// Read acquires a shared lock and reads the token
-func (z *ZedTokenStore) Read(ctx context.Context) (*string, error) {
-	if err := z.acquireLock(ctx, true); err != nil {
-		return nil, fmt.Errorf("failed to acquire shared lock: %w", err)
+// createDedicatedConnection creates a new GORM DB instance with a single connection
+func createDedicatedConnection(db *gorm.DB) *gorm.DB {
+	// Create new connection with the same dialector and config
+	newDB, err := gorm.Open(db.Dialector, &gorm.Config{
+		Logger: db.Config.Logger,
+	})
+	if err != nil {
+		zap.S().Warnw("failed to create dedicated lock connection, using original", "error", err)
+		return db
 	}
 
-	defer func() {
-		if err := z.releaseLock(ctx, true); err != nil {
-			// Log error but don't fail the operation since we got the data
-			// In production, this should use proper logging
-			fmt.Printf("Warning: failed to release shared lock: %v\n", err)
-		}
-	}()
+	// Configure the connection pool to use only 1 connection
+	newSqlDB, err := newDB.DB()
+	if err != nil {
+		zap.S().Warnw("failed to configure lock connection pool, using original", "error", err)
+		return db
+	}
 
+	newSqlDB.SetMaxOpenConns(1)
+	newSqlDB.SetMaxIdleConns(1)
+	newSqlDB.SetConnMaxLifetime(0) // connections never expire
+
+	return newDB
+}
+
+// Read reads the token (assumes caller has already acquired appropriate lock)
+func (z *ZedTokenStore) Read(ctx context.Context) (*string, error) {
 	var token string
 	tx := z.getDB(ctx).Raw("SELECT token FROM zed_token LIMIT 1;").Scan(&token)
 	if tx.Error != nil {
@@ -54,68 +78,52 @@ func (z *ZedTokenStore) Read(ctx context.Context) (*string, error) {
 	return &token, nil
 }
 
-// Write acquires a global lock and writes the token
+// Write writes the token (assumes caller has already acquired appropriate lock)
 func (z *ZedTokenStore) Write(ctx context.Context, token string) error {
-	if err := z.acquireLock(ctx, false); err != nil {
-		return fmt.Errorf("failed to acquire global lock: %w", err)
-	}
-
-	defer func() {
-		if err := z.releaseLock(ctx, false); err != nil {
-			zap.S().Errorw("failed to release gobal lock", "error", err)
-		}
-	}()
-
-	tx := z.getDB(ctx).Exec("UPDATE zed_token SET token = ?;", token)
+	// upsert query to keep only one value of the token in the db
+	tx := z.getDB(ctx).Exec(fmt.Sprintf(writeStmt, token))
 	if tx.Error != nil {
+		zap.S().Errorf(tx.Error.Error())
 		return fmt.Errorf("failed to write token: %w", tx.Error)
 	}
 
 	return nil
 }
 
-// acquireLock attempts to acquire either a shared or global advisory lock
-func (z *ZedTokenStore) acquireLock(ctx context.Context, isShared bool) error {
+// AcquireLock attempts to acquire either a shared or global advisory lock
+func (z *ZedTokenStore) AcquireLock(ctx context.Context, isShared bool) error {
 	lockStmt := globalLockStmtFixed
 	if isShared {
 		lockStmt = sharedLockStmtFixed
 	}
 
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			var hasLock bool
-			tx := z.db.WithContext(ctx).Raw(lockStmt, z.lockID).Scan(&hasLock)
-			if tx.Error != nil {
-				return fmt.Errorf("lock query failed: %w", tx.Error)
-			}
-			if hasLock {
-				return nil
-			}
-		case <-ctx.Done():
-			return fmt.Errorf("lock acquisition timeout: %w", ctx.Err())
-		}
+	lockQuery := fmt.Sprintf(lockStmt, z.lockID)
+	// Use dedicated connection to ensure same session for lock/unlock
+	tx := z.lockConn.WithContext(ctx).Exec(lockQuery)
+	if tx.Error != nil {
+		return fmt.Errorf("lock query failed: %w", tx.Error)
 	}
+
+	return nil
 }
 
-// releaseLock releases either a shared or global advisory lock
-func (z *ZedTokenStore) releaseLock(ctx context.Context, isShared bool) error {
+// ReleaseLock releases either a shared or global advisory lock
+func (z *ZedTokenStore) ReleaseLock(ctx context.Context, isShared bool) error {
 	unlockStmt := globalUnlockStmtFixed
 	if isShared {
 		unlockStmt = sharedUnlockStmtFixed
 	}
 
 	var released bool
-	tx := z.db.WithContext(ctx).Raw(unlockStmt, z.lockID).Scan(&released)
+	unlockQuery := fmt.Sprintf(unlockStmt, z.lockID)
+	// Use same dedicated connection as AcquireLock to ensure same session
+	tx := z.lockConn.WithContext(ctx).Raw(unlockQuery).Scan(&released)
 	if tx.Error != nil {
 		return fmt.Errorf("unlock query failed: %w", tx.Error)
 	}
 
 	if !released {
-		return fmt.Errorf("failed to release lock (lock was not held)")
+		return fmt.Errorf("failed to release lock (lock was not held). Lock is shared: %v", isShared)
 	}
 
 	return nil

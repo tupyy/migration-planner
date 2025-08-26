@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 
+	"github.com/authzed/authzed-go/v1"
 	"github.com/google/uuid"
 	"github.com/kubev2v/migration-planner/internal/store/model"
 	"gorm.io/gorm"
@@ -12,6 +13,7 @@ import (
 type Store interface {
 	NewTransactionContext(ctx context.Context) (context.Context, error)
 	Agent() Agent
+	Authz() Authz
 	Source() Source
 	ImageInfra() ImageInfra
 	PrivateKey() PrivateKey
@@ -26,6 +28,7 @@ type DataStore struct {
 	agent      Agent
 	db         *gorm.DB
 	source     Source
+	authz      Authz
 	imageInfra ImageInfra
 	privateKey PrivateKey
 	label      Label
@@ -35,6 +38,19 @@ type DataStore struct {
 func NewStore(db *gorm.DB) Store {
 	return &DataStore{
 		agent:      NewAgentSource(db),
+		source:     NewSource(db),
+		imageInfra: NewImageInfraStore(db),
+		privateKey: NewCacheKeyStore(NewPrivateKey(db)),
+		label:      NewLabelStore(db),
+		assessment: NewAssessmentStore(db),
+		db:         db,
+	}
+}
+
+func NewStoreWithAuthz(db *gorm.DB, spiceDbClient *authzed.Client) Store {
+	return &DataStore{
+		agent:      NewAgentSource(db),
+		authz:      NewAuthzStore(NewZedTokenStore(db), spiceDbClient),
 		source:     NewSource(db),
 		imageInfra: NewImageInfraStore(db),
 		privateKey: NewCacheKeyStore(NewPrivateKey(db)),
@@ -106,6 +122,10 @@ func (s *DataStore) Seed() error {
 	}
 
 	return nil
+}
+
+func (s *DataStore) Authz() Authz {
+	return s.authz
 }
 
 func (s *DataStore) Close() error {

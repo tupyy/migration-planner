@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	apiserver "github.com/kubev2v/migration-planner/internal/api_server"
 	"github.com/kubev2v/migration-planner/internal/api_server/agentserver"
@@ -15,13 +17,12 @@ import (
 	"github.com/kubev2v/migration-planner/internal/config"
 	"github.com/kubev2v/migration-planner/internal/opa"
 	"github.com/kubev2v/migration-planner/internal/store"
+	"github.com/kubev2v/migration-planner/internal/util"
+	"github.com/kubev2v/migration-planner/pkg/iso"
 	"github.com/kubev2v/migration-planner/pkg/log"
 	"github.com/kubev2v/migration-planner/pkg/metrics"
 	"github.com/kubev2v/migration-planner/pkg/migrations"
 	"github.com/kubev2v/migration-planner/pkg/version"
-	"github.com/spf13/cobra"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 var runCmd = &cobra.Command{
@@ -54,7 +55,16 @@ var runCmd = &cobra.Command{
 			zap.S().Fatalw("initializing data store", "error", err)
 		}
 
-		store := store.NewStore(db)
+		// Initialize SpiceDB client
+		endpoint := util.GetEnv("SPICEDB_ENDPOINT", "localhost:50051")
+		token := util.GetEnv("SPICEDB_TOKEN", "foobar")
+		spiceDbClient, err := store.InitSpiceDbClient(endpoint, token)
+		if err != nil {
+			zap.S().Fatalw("initializing SpiceDB client", "error", err)
+		}
+		defer spiceDbClient.Close()
+
+		store := store.NewStoreWithAuthz(db, spiceDbClient)
 		defer store.Close()
 
 		if err := migrations.MigrateStore(db, cfg.Service.MigrationFolder); err != nil {
@@ -68,11 +78,12 @@ var runCmd = &cobra.Command{
 			}
 		}
 
-		// The migration planner API expects the RHCOS ISO to be on disk
-		if err := ensureIsoExist(cfg.Service.IsoPath); err != nil {
-			zap.S().Fatalw("validate iso", "error", err)
-			return err
-		}
+		// Initialize ISOs
+		// zap.S().Info("Initializing RHCOS ISO")
+		// if err := initializeIso(context.TODO(), cfg); err != nil {
+		// 	zap.S().Fatalw("failed to initilized iso", "error", err)
+		// }
+		// zap.S().Info("RHCOS ISO initialized")
 
 		// Initialize OPA validator for policy validation
 		zap.S().Info("initializing OPA validator...")
@@ -150,14 +161,42 @@ func newListener(address string) (net.Listener, error) {
 	return net.Listen("tcp", address)
 }
 
-func ensureIsoExist(path string) error {
-	if _, err := os.Stat(path); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("RHCOS ISO not found at path: %s", path)
-		} else if os.IsPermission(err) {
-			return fmt.Errorf("permission denied for file: %s", path)
-		}
+func initializeIso(ctx context.Context, cfg *config.Config) error {
+	// Check if ISO already exists:
+	isoPath := util.GetEnv("MIGRATION_PLANNER_ISO_PATH", "rhcos-live-iso.x86_64.iso")
+	if _, err := os.Stat(isoPath); err == nil {
+		return nil
+	}
+
+	out, err := os.Create(isoPath)
+	if err != nil {
 		return err
 	}
+	defer out.Close()
+
+	md := iso.NewDownloaderManager()
+
+	minio, err := iso.NewMinioDownloader(
+		iso.WithEndpoint(cfg.Service.S3.Endpoint),
+		iso.WithBucket(cfg.Service.S3.Bucket),
+		iso.WithAccessKey(cfg.Service.S3.AccessKey),
+		iso.WithSecretKey(cfg.Service.S3.SecretKey),
+		iso.WithImage(cfg.Service.S3.IsoFileName, cfg.Service.RhcosImageSha256),
+	)
+	if err == nil {
+		md.Register(minio)
+	} else {
+		zap.S().Errorw("failed to create minio downloader", "error", err)
+	}
+
+	// register the default downloader of the official RHCOS image.
+	md.Register(iso.NewHttpDownloader(cfg.Service.RhcosImageName, cfg.Service.RhcosImageSha256))
+
+	if err := md.Download(ctx, out); err != nil {
+		// Remove the file from disk to allow the planner to retry the image download after restart.
+		_ = os.Remove(isoPath)
+		return err
+	}
+
 	return nil
 }
