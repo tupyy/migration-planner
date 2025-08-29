@@ -61,19 +61,10 @@ func NewAuthzStore(zedTokenStore *ZedTokenStore, client *authzed.Client) Authz {
 func (a *AuthzStore) WriteRelationships(ctx context.Context, relationships ...model.RelationshipFn) error {
 	callerID := fmt.Sprintf("write-%d", rand.Int31())
 	zap.S().Debugw("WriteRelationships: acquiring exclusive lock", "callerID", callerID, "relationshipCount", len(relationships))
-	if err := a.zedStore.AcquireLock(ctx, false); err != nil {
+	if err := a.zedStore.AcquireGlobalLock(ctx); err != nil {
 		zap.S().Errorw("WriteRelationships: failed to acquire exclusive lock", "callerID", callerID, "error", err)
 		return err
 	}
-
-	zap.S().Debugw("WriteRelationships: exclusive lock acquired", "callerID", callerID)
-	defer func() {
-		zap.S().Debugw("WriteRelationships: releasing exclusive lock", "callerID", callerID)
-		if err := a.zedStore.ReleaseLock(ctx, false); err != nil {
-			zap.S().Warnw("WriteRelationships: failed to release exclusive lock", "callerID", callerID, "error", err)
-		}
-		zap.S().Debugw("WriteRelationships: lock released", "callerID", callerID)
-	}()
 
 	zap.S().Debugw("WriteRelationships: executing relationship writes", "callerID", callerID)
 	zedToken, err := a.writeRelationships(ctx, relationships...)
@@ -111,17 +102,10 @@ func (a *AuthzStore) WriteRelationships(ctx context.Context, relationships ...mo
 func (a *AuthzStore) DeleteRelationships(ctx context.Context, assessmentId string) error {
 	callerID := fmt.Sprintf("delete-%d", rand.Int31())
 	zap.S().Debugw("DeleteRelationships: acquiring exclusive lock", "callerID", callerID)
-	if err := a.zedStore.AcquireLock(ctx, false); err != nil {
+	if err := a.zedStore.AcquireGlobalLock(ctx); err != nil {
 		zap.S().Errorw("DeleteRelationships: failed to acquire exclusive lock", "callerID", callerID, "error", err)
 		return err
 	}
-	zap.S().Debugw("DeleteRelationships: exclusive lock acquired", "callerID", callerID)
-	defer func() {
-		zap.S().Debugw("DeleteRelationships: releasing exclusive lock", "callerID", callerID)
-		if err := a.zedStore.ReleaseLock(ctx, false); err != nil {
-			zap.S().Warnw("DeleteRelationships: failed to release exclusive lock", "callerID", callerID, "error", err)
-		}
-	}()
 
 	zap.S().Debugw("DeleteRelationships: executing relationship deletions")
 	zedToken, err := a.deleteRelationships(ctx, assessmentId)
@@ -161,18 +145,12 @@ func (a *AuthzStore) DeleteRelationships(ctx context.Context, assessmentId strin
 //	    fmt.Println()
 //	}
 func (a *AuthzStore) ListResources(ctx context.Context, userID string) ([]model.Resource, error) {
-	// zap.S().Debugw("ListResources: acquiring shared lock", "userID", userID)
-	// if err := a.zedStore.AcquireLock(ctx, true); err != nil {
-	// 	zap.S().Errorw("ListResources: failed to acquire shared lock", "error", err, "userID", userID)
-	// 	return []model.Resource{}, err
-	// }
-	// zap.S().Debugw("ListResources: shared lock acquired")
-	// defer func() {
-	// 	zap.S().Debugw("ListResources: releasing shared lock")
-	// 	if err := a.zedStore.ReleaseLock(ctx, true); err != nil {
-	// 		zap.S().Warnw("ListResources: failed to release shared lock", "error", err)
-	// 	}
-	// }()
+	zap.S().Debugw("ListResources: acquiring shared lock", "userID", userID)
+	if err := a.zedStore.AcquireSharedLock(ctx); err != nil {
+		zap.S().Errorw("ListResources: failed to acquire shared lock", "error", err, "userID", userID)
+		return []model.Resource{}, err
+	}
+	zap.S().Debugw("ListResources: shared lock acquired")
 
 	zap.S().Debugw("ListResources: reading zed token from store")
 	token, err := a.zedStore.Read(ctx)
@@ -214,18 +192,11 @@ func (a *AuthzStore) ListResources(ctx context.Context, userID string) ([]model.
 //	    fmt.Println()
 //	}
 func (a *AuthzStore) GetPermissions(ctx context.Context, assessmentIDs []string, userID string) (map[string][]model.Permission, error) {
-	// zap.S().Debugw("GetPermissions: acquiring shared lock", "userID", userID, "assessmentCount", len(assessmentIDs))
-	// if err := a.zedStore.AcquireLock(ctx, true); err != nil {
-	// 	zap.S().Errorw("GetPermissions: failed to acquire shared lock", "error", err, "userID", userID)
-	// 	return map[string][]model.Permission{}, err
-	// }
-	// zap.S().Debugw("GetPermissions: shared lock acquired")
-	// defer func() {
-	// 	zap.S().Debugw("GetPermissions: releasing shared lock")
-	// 	if err := a.zedStore.ReleaseLock(ctx, true); err != nil {
-	// 		zap.S().Warnw("GetPermissions: failed to release shared lock", "error", err)
-	// 	}
-	// }()
+	zap.S().Debugw("GetPermissions: acquiring shared lock", "userID", userID, "assessmentCount", len(assessmentIDs))
+	if err := a.zedStore.AcquireSharedLock(ctx); err != nil {
+		zap.S().Errorw("GetPermissions: failed to acquire shared lock", "error", err, "userID", userID)
+		return map[string][]model.Permission{}, err
+	}
 
 	// read the token first
 	zap.S().Debugw("GetPermissions: reading zed token from store")
@@ -414,11 +385,13 @@ func WithEditorRelationship(assessmentID string, subject model.Subject) model.Re
 //	)
 func WithMemberRelationship(userID, orgID string) model.RelationshipFn {
 	return func(updates []*v1pb.RelationshipUpdate) []*v1pb.RelationshipUpdate {
+		orgObject := model.OrgObject
+
 		relationshipUpdate := &v1pb.RelationshipUpdate{
 			Operation: v1pb.RelationshipUpdate_OPERATION_TOUCH,
 			Relationship: &v1pb.Relationship{
 				Resource: &v1pb.ObjectReference{
-					ObjectType: model.OrgObject,
+					ObjectType: orgObject,
 					ObjectId:   hash(orgID),
 				},
 				Relation: model.MemberRelationshipKind.String(),

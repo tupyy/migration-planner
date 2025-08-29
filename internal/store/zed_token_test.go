@@ -20,48 +20,34 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 
 	BeforeAll(func() {
 		var err error
-		// Use a context for setup
 		ctx := context.Background()
-
-		// Initialize database using the same pattern as other tests
 		cfg, err := config.New()
 		Expect(err).To(BeNil())
 
 		gormDB, err = store.InitDB(cfg)
 		Expect(err).To(BeNil())
 
-		// Create the zed_token table if it doesn't exist
-		err = gormDB.WithContext(ctx).Exec(`
-			CREATE TABLE IF NOT EXISTS zed_token (
-				token TEXT NOT NULL DEFAULT ''
-			);
-		`).Error
-		Expect(err).To(BeNil())
-
-		// Ensure we have exactly one row
 		var count int64
 		err = gormDB.WithContext(ctx).Raw("SELECT COUNT(*) FROM zed_token").Scan(&count).Error
 		Expect(err).To(BeNil())
 
 		if count == 0 {
-			err = gormDB.WithContext(ctx).Exec("INSERT INTO zed_token (token) VALUES ('')").Error
+			err = gormDB.WithContext(ctx).Exec("INSERT INTO zed_token (id, token) VALUES (1, '')").Error
 			Expect(err).To(BeNil())
 		} else if count > 1 {
 			err = gormDB.WithContext(ctx).Exec("DELETE FROM zed_token").Error
 			Expect(err).To(BeNil())
-			err = gormDB.WithContext(ctx).Exec("INSERT INTO zed_token (token) VALUES ('')").Error
+			err = gormDB.WithContext(ctx).Exec("INSERT INTO zed_token (id, token) VALUES (1, '')").Error
 			Expect(err).To(BeNil())
 		}
 
-		// Create token store
 		tokenStore = store.NewZedTokenStore(gormDB)
 		Expect(tokenStore).ToNot(BeNil())
 	})
 
 	BeforeEach(func() {
-		// Reset token to empty before each test
 		ctx := context.Background()
-		err := gormDB.WithContext(ctx).Exec("UPDATE zed_token SET token = ''").Error
+		err := gormDB.WithContext(ctx).Exec("UPDATE zed_token SET token = '' WHERE id = 1").Error
 		Expect(err).To(BeNil())
 	})
 
@@ -82,11 +68,9 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 
 			testToken := "test-token-123"
 
-			// Write token directly to database
-			err := gormDB.Exec("UPDATE zed_token SET token = ?", testToken).Error
+			err := gormDB.Exec("UPDATE zed_token SET token = ? WHERE id = 1", testToken).Error
 			Expect(err).To(BeNil())
 
-			// Read token using store
 			token, err := tokenStore.Read(ctx)
 			Expect(err).To(BeNil())
 			Expect(token).ToNot(BeNil())
@@ -94,13 +78,10 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 		})
 
 		It("should handle context cancellation during read", func() {
-			// Create a context that will be cancelled quickly
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 			defer cancel()
 
-			// This might succeed or fail depending on timing, but should not panic
 			_, err := tokenStore.Read(ctx)
-			// We don't assert success/failure since timing is unpredictable in tests
 			_ = err
 		})
 	})
@@ -115,7 +96,6 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 			err := tokenStore.Write(ctx, testToken)
 			Expect(err).To(BeNil())
 
-			// Verify token was written by reading directly from database
 			var storedToken string
 			err = gormDB.Raw("SELECT token FROM zed_token LIMIT 1").Scan(&storedToken).Error
 			Expect(err).To(BeNil())
@@ -129,15 +109,12 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 			initialToken := "initial-token"
 			newToken := "updated-token"
 
-			// Write initial token
 			err := tokenStore.Write(ctx, initialToken)
 			Expect(err).To(BeNil())
 
-			// Overwrite with new token
 			err = tokenStore.Write(ctx, newToken)
 			Expect(err).To(BeNil())
 
-			// Verify new token was stored
 			var storedToken string
 			err = gormDB.Raw("SELECT token FROM zed_token LIMIT 1").Scan(&storedToken).Error
 			Expect(err).To(BeNil())
@@ -151,7 +128,6 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 			err := tokenStore.Write(ctx, "")
 			Expect(err).To(BeNil())
 
-			// Verify empty token was stored
 			var storedToken string
 			err = gormDB.Raw("SELECT token FROM zed_token LIMIT 1").Scan(&storedToken).Error
 			Expect(err).To(BeNil())
@@ -162,9 +138,8 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 			defer cancel()
 
-			// This might succeed or fail depending on timing, but should not panic
 			err := tokenStore.Write(ctx, "test-token")
-			_ = err // Don't assert since timing is unpredictable
+			_ = err
 		})
 	})
 
@@ -173,7 +148,6 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			// Create a large token (1KB)
 			largeToken := ""
 			for i := 0; i < 1024; i++ {
 				largeToken += "A"
@@ -209,7 +183,6 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 
 			testToken := "concurrent-read-token"
 
-			// Write initial token
 			err := tokenStore.Write(ctx, testToken)
 			Expect(err).To(BeNil())
 
@@ -217,8 +190,7 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 			results := make([]string, 5)
 			errors := make([]error, 5)
 
-			// Launch 5 concurrent reads
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				wg.Add(1)
 				go func(index int) {
 					defer wg.Done()
@@ -232,8 +204,7 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 
 			wg.Wait()
 
-			// All reads should succeed and return the same token
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				Expect(errors[i]).To(BeNil())
 				Expect(results[i]).To(Equal(testToken))
 			}
@@ -247,7 +218,6 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 			tokens := []string{"token1", "token2", "token3", "token4", "token5"}
 			errors := make([]error, len(tokens))
 
-			// Launch concurrent writes
 			for i, token := range tokens {
 				wg.Add(1)
 				go func(index int, t string) {
@@ -258,12 +228,10 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 
 			wg.Wait()
 
-			// All writes should succeed
 			for i := 0; i < len(tokens); i++ {
 				Expect(errors[i]).To(BeNil())
 			}
 
-			// Final token should be one of the written tokens
 			finalToken, err := tokenStore.Read(ctx)
 			Expect(err).To(BeNil())
 			Expect(tokens).To(ContainElement(*finalToken))
@@ -276,7 +244,6 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 			initialToken := "initial"
 			newToken := "updated"
 
-			// Set initial token
 			err := tokenStore.Write(ctx, initialToken)
 			Expect(err).To(BeNil())
 
@@ -285,13 +252,11 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 			readErrors := make([]error, 3)
 			writeErrors := make([]error, 2)
 
-			// Launch concurrent operations
-			// 3 reads
 			for i := 0; i < 3; i++ {
 				wg.Add(1)
 				go func(index int) {
 					defer wg.Done()
-					time.Sleep(time.Duration(index*10) * time.Millisecond) // Stagger operations
+					time.Sleep(time.Duration(index*10) * time.Millisecond)
 					token, err := tokenStore.Read(ctx)
 					readErrors[index] = err
 					if err == nil && token != nil {
@@ -300,19 +265,17 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 				}(i)
 			}
 
-			// 2 writes
 			for i := 0; i < 2; i++ {
 				wg.Add(1)
 				go func(index int) {
 					defer wg.Done()
-					time.Sleep(time.Duration(index*15) * time.Millisecond) // Stagger operations
+					time.Sleep(time.Duration(index*15) * time.Millisecond)
 					writeErrors[index] = tokenStore.Write(ctx, newToken)
 				}(i)
 			}
 
 			wg.Wait()
 
-			// All operations should succeed
 			for i := 0; i < 3; i++ {
 				Expect(readErrors[i]).To(BeNil())
 			}
@@ -320,7 +283,6 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 				Expect(writeErrors[i]).To(BeNil())
 			}
 
-			// Each read result should be either the initial or new token
 			validTokens := []string{initialToken, newToken}
 			for i := 0; i < 3; i++ {
 				Expect(validTokens).To(ContainElement(readResults[i]))
@@ -333,8 +295,6 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
-			// This test would require a way to simulate database failure
-			// For now, we'll just verify the methods don't panic with normal operation
 			token, err := tokenStore.Read(ctx)
 			Expect(err).To(BeNil())
 			Expect(token).ToNot(BeNil())
@@ -349,20 +309,16 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 			token1 := "consistency-test-1"
 			token2 := "consistency-test-2"
 
-			// Write first token
 			err := tokenStore.Write(ctx, token1)
 			Expect(err).To(BeNil())
 
-			// Read should return first token
 			readToken, err := tokenStore.Read(ctx)
 			Expect(err).To(BeNil())
 			Expect(*readToken).To(Equal(token1))
 
-			// Write second token
 			err = tokenStore.Write(ctx, token2)
 			Expect(err).To(BeNil())
 
-			// Read should return second token
 			readToken, err = tokenStore.Read(ctx)
 			Expect(err).To(BeNil())
 			Expect(*readToken).To(Equal(token2))
@@ -377,11 +333,9 @@ var _ = Describe("ZedTokenStore", Ordered, func() {
 			for i := 0; i < 10; i++ {
 				token := baseToken + "-" + string(rune('0'+i))
 
-				// Write
 				err := tokenStore.Write(ctx, token)
 				Expect(err).To(BeNil())
 
-				// Immediate read
 				readToken, err := tokenStore.Read(ctx)
 				Expect(err).To(BeNil())
 				Expect(*readToken).To(Equal(token))

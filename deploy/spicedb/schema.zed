@@ -25,21 +25,6 @@
  */
 definition user {}
 
-/*
- * Super Organization Definition
- * 
- * Represents a top-level organization with elevated privileges.
- * Super organizations can:
- * - Have user members
- * - Grant elevated access to resources through membership
- * 
- * Use cases:
- * - Administrative organizations
- * - Platform-level access control
- */
-definition super_org {
-    relation member: user
-}
 
 /*
  * Organization Definition
@@ -77,7 +62,7 @@ definition org {
  * - Super org membership for administrative access
  */
 definition source {
-    relation owner: user | super_org#member
+    relation owner: user | org#member
     relation editor: user | org#member
 
     permission read = owner + editor
@@ -114,7 +99,7 @@ definition source {
  * - Super org members have elevated access across all assessments
  */
 definition assessment {
-	relation owner: user | super_org#member
+	relation owner: user | org#member
 	relation editor: user | org#member
 	relation reader: user | org#member
 
