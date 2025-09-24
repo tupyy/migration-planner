@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	superOrg = "redhat_consultant" // To Be Defined
+	superOrg = "super_org" // To Be Defined
 )
 
 // AuthzService provides authorization functionality. All methods require transactions
@@ -54,7 +54,7 @@ func (a *AuthzService) CreateUser(ctx context.Context, user auth.User) error {
 	}()
 
 	relationships := []model.RelationshipFn{
-		store.WithMemberRelationship(user.Username, user.EmailDomain),
+		store.WithMemberRelationship(user.Username, user.Organization),
 	}
 
 	if err := a.s.Authz().WriteRelationships(ctx, relationships...); err != nil {
@@ -81,7 +81,7 @@ func (a *AuthzService) CreateAssessmentRelationship(ctx context.Context, assessm
 
 	relationships := []model.RelationshipFn{
 		store.WithOwnerRelationship(assessmentId, model.NewUserSubject(user.Username)),
-		store.WithEditorRelationship(assessmentId, model.NewOrganizationSubject(user.EmailDomain)),
+		store.WithEditorRelationship(assessmentId, model.NewOrganizationSubject(user.Organization)),
 	}
 
 	for _, gen := range a.conditionalGenerators {
@@ -298,7 +298,7 @@ func (c *ConditionalRelationshipGenerator) WithRelationshipTemplate(templateFn f
 	return c
 }
 
-func (c *ConditionalRelationshipGenerator) Generate(user auth.User, assessmentId string) []model.RelationshipFn {
+func (c *ConditionalRelationshipGenerator) Generate(user auth.User, assessmentID string) []model.RelationshipFn {
 	if !c.condition(user) {
 		return []model.RelationshipFn{}
 	}
@@ -306,7 +306,7 @@ func (c *ConditionalRelationshipGenerator) Generate(user auth.User, assessmentId
 	relationshipFn := []model.RelationshipFn{}
 
 	for _, fn := range c.templateFns {
-		relationshipFn = append(relationshipFn, fn(assessmentId, user))
+		relationshipFn = append(relationshipFn, fn(assessmentID, user))
 	}
 
 	return relationshipFn
@@ -315,7 +315,7 @@ func (c *ConditionalRelationshipGenerator) Generate(user auth.User, assessmentId
 func NewSuperOrgRelationGen(superOrgID string) *ConditionalRelationshipGenerator {
 	return NewConditionalRelationship().
 		WithCondition(func(u auth.User) bool {
-			return u.Organization == superOrgID
+			return u.Organization != superOrgID
 		}).
 		WithRelationshipTemplate(func(assessmentId string, user auth.User) model.RelationshipFn {
 			return store.WithOwnerRelationship(assessmentId, model.NewOrganizationSubject(superOrgID))
