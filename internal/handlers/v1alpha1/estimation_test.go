@@ -141,6 +141,7 @@ var _ = Describe("estimation handler", func() {
 					nil, // jobService
 					nil, // sizerService
 					service.NewEstimationService(mockStore),
+					nil,
 				)
 
 				resp, err := handler.CalculateMigrationEstimation(ctx, server.CalculateMigrationEstimationRequestObject{
@@ -174,6 +175,7 @@ var _ = Describe("estimation handler", func() {
 					nil,
 					nil,
 					service.NewEstimationService(mockStore),
+					nil,
 				)
 
 				resp, err := handler.CalculateMigrationEstimation(ctx, server.CalculateMigrationEstimationRequestObject{
@@ -219,6 +221,7 @@ var _ = Describe("estimation handler", func() {
 					nil,
 					nil,
 					service.NewEstimationService(mockStore),
+					nil,
 				)
 
 				resp, err := handler.CalculateMigrationEstimation(ctx, server.CalculateMigrationEstimationRequestObject{
@@ -248,6 +251,7 @@ var _ = Describe("estimation handler", func() {
 					nil,
 					nil,
 					service.NewEstimationService(mockStore),
+					nil,
 				)
 
 				resp, err := handler.CalculateMigrationEstimation(ctx, server.CalculateMigrationEstimationRequestObject{
@@ -270,6 +274,7 @@ var _ = Describe("estimation handler", func() {
 					nil,
 					nil,
 					service.NewEstimationService(mockStore),
+					nil,
 				)
 
 				resp, err := handler.CalculateMigrationEstimation(ctx, server.CalculateMigrationEstimationRequestObject{
@@ -294,6 +299,7 @@ var _ = Describe("estimation handler", func() {
 					nil,
 					nil,
 					service.NewEstimationService(mockStore),
+					nil,
 				)
 
 				resp, err := handler.CalculateMigrationEstimation(ctx, server.CalculateMigrationEstimationRequestObject{
@@ -319,6 +325,7 @@ var _ = Describe("estimation handler", func() {
 					nil,
 					nil,
 					service.NewEstimationService(mockStore),
+					nil,
 				)
 
 				resp, err := handler.CalculateMigrationEstimation(ctx, server.CalculateMigrationEstimationRequestObject{
@@ -345,6 +352,7 @@ var _ = Describe("estimation handler", func() {
 					nil,
 					nil,
 					service.NewEstimationService(mockStore),
+					nil,
 				)
 
 				resp, err := handler.CalculateMigrationEstimation(ctx, server.CalculateMigrationEstimationRequestObject{
@@ -370,6 +378,7 @@ var _ = Describe("estimation handler", func() {
 					nil,
 					nil,
 					service.NewEstimationService(mockStore),
+					nil,
 				)
 
 				resp, err := handler.CalculateMigrationEstimation(ctx, server.CalculateMigrationEstimationRequestObject{
@@ -397,6 +406,7 @@ var _ = Describe("estimation handler", func() {
 					nil,
 					nil,
 					service.NewEstimationService(mockStore),
+					nil,
 				)
 
 				resp, err := handler.CalculateMigrationEstimation(ctx, server.CalculateMigrationEstimationRequestObject{
@@ -423,6 +433,7 @@ var _ = Describe("estimation handler", func() {
 					nil,
 					nil,
 					service.NewEstimationService(mockStore),
+					nil,
 				)
 
 				resp, err := handler.CalculateMigrationEstimation(ctx, server.CalculateMigrationEstimationRequestObject{
@@ -448,6 +459,7 @@ var _ = Describe("estimation handler", func() {
 					nil,
 					nil,
 					service.NewEstimationService(mockStore),
+					nil,
 				)
 
 				resp, err := handler.CalculateMigrationEstimation(ctx, server.CalculateMigrationEstimationRequestObject{
@@ -474,6 +486,7 @@ var _ = Describe("estimation handler", func() {
 					nil,
 					nil,
 					service.NewEstimationService(mockStore),
+					nil,
 				)
 
 				resp, err := handler.CalculateMigrationEstimation(ctx, server.CalculateMigrationEstimationRequestObject{
@@ -506,6 +519,7 @@ var _ = Describe("estimation handler", func() {
 					nil,
 					nil,
 					service.NewEstimationService(mockStore),
+					nil,
 				)
 
 				resp, err := handler.CalculateMigrationEstimation(ctx, server.CalculateMigrationEstimationRequestObject{
@@ -529,6 +543,7 @@ var _ = Describe("estimation handler", func() {
 					nil,
 					nil,
 					svc,
+					nil,
 				)
 
 				// Baseline: no param override, default transfer rate
@@ -576,7 +591,7 @@ var _ = Describe("estimation handler", func() {
 			It("returns 200 with complexityByDisk (4 entries) and complexityByOS (5 entries)", func() {
 				request := &api.MigrationComplexityRequest{ClusterId: clusterID}
 				mockStore.assessments[assessmentID] = createTestAssessmentForComplexityHandler(assessmentID, user.Username, user.Organization, clusterID)
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   assessmentID,
@@ -593,7 +608,7 @@ var _ = Describe("estimation handler", func() {
 			It("returns diskSizeRatings with range-only keys and correct scores", func() {
 				request := &api.MigrationComplexityRequest{ClusterId: clusterID}
 				mockStore.assessments[assessmentID] = createTestAssessmentForComplexityHandler(assessmentID, user.Username, user.Organization, clusterID)
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   assessmentID,
@@ -612,7 +627,7 @@ var _ = Describe("estimation handler", func() {
 			It("returns osRatings with one entry per OS in the cluster inventory", func() {
 				request := &api.MigrationComplexityRequest{ClusterId: clusterID}
 				mockStore.assessments[assessmentID] = createTestAssessmentForComplexityHandler(assessmentID, user.Username, user.Organization, clusterID)
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   assessmentID,
@@ -631,7 +646,7 @@ var _ = Describe("estimation handler", func() {
 			It("returns disk scores in canonical order 1 through 4", func() {
 				request := &api.MigrationComplexityRequest{ClusterId: clusterID}
 				mockStore.assessments[assessmentID] = createTestAssessmentForComplexityHandler(assessmentID, user.Username, user.Organization, clusterID)
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   assessmentID,
@@ -648,7 +663,7 @@ var _ = Describe("estimation handler", func() {
 			It("returns OS scores in canonical order 0 through 4", func() {
 				request := &api.MigrationComplexityRequest{ClusterId: clusterID}
 				mockStore.assessments[assessmentID] = createTestAssessmentForComplexityHandler(assessmentID, user.Username, user.Organization, clusterID)
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   assessmentID,
@@ -665,7 +680,7 @@ var _ = Describe("estimation handler", func() {
 			It("returns complexityByOSName with one entry per distinct OS name", func() {
 				request := &api.MigrationComplexityRequest{ClusterId: clusterID}
 				mockStore.assessments[assessmentID] = createTestAssessmentForComplexityHandler(assessmentID, user.Username, user.Organization, clusterID)
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   assessmentID,
@@ -681,7 +696,7 @@ var _ = Describe("estimation handler", func() {
 			It("returns complexityByOSName with correct osName, score and vmCount for a known OS", func() {
 				request := &api.MigrationComplexityRequest{ClusterId: clusterID}
 				mockStore.assessments[assessmentID] = createTestAssessmentForComplexityHandler(assessmentID, user.Username, user.Organization, clusterID)
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   assessmentID,
@@ -706,7 +721,7 @@ var _ = Describe("estimation handler", func() {
 
 		Context("request validation errors", func() {
 			It("returns 400 when request body is nil", func() {
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   assessmentID,
@@ -720,7 +735,7 @@ var _ = Describe("estimation handler", func() {
 			})
 
 			It("returns 400 when clusterId is empty", func() {
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   assessmentID,
@@ -736,7 +751,7 @@ var _ = Describe("estimation handler", func() {
 
 		Context("assessment not found errors", func() {
 			It("returns 404 when assessment does not exist", func() {
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   uuid.New(),
@@ -750,7 +765,7 @@ var _ = Describe("estimation handler", func() {
 
 			It("returns 500 when store returns a non-NotFound error", func() {
 				mockStore.getError = errors.New("database error")
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   assessmentID,
@@ -766,7 +781,7 @@ var _ = Describe("estimation handler", func() {
 		Context("authorization errors", func() {
 			It("returns 403 when user has a different username", func() {
 				mockStore.assessments[assessmentID] = createTestAssessmentForComplexityHandler(assessmentID, "other-user", user.Organization, clusterID)
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   assessmentID,
@@ -781,7 +796,7 @@ var _ = Describe("estimation handler", func() {
 
 			It("returns 403 when user belongs to a different organisation", func() {
 				mockStore.assessments[assessmentID] = createTestAssessmentForComplexityHandler(assessmentID, user.Username, "other-org", clusterID)
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   assessmentID,
@@ -798,7 +813,7 @@ var _ = Describe("estimation handler", func() {
 		Context("complexity service errors", func() {
 			It("returns 404 when cluster ID is not found in inventory", func() {
 				mockStore.assessments[assessmentID] = createTestAssessmentForComplexityHandler(assessmentID, user.Username, user.Organization, clusterID)
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   assessmentID,
@@ -819,7 +834,7 @@ var _ = Describe("estimation handler", func() {
 					Username:  user.Username,
 					Snapshots: []model.Snapshot{},
 				}
-				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore))
+				handler = handlers.NewServiceHandler(nil, service.NewAssessmentService(mockStore, nil), nil, nil, service.NewEstimationService(mockStore), nil)
 
 				resp, err := handler.CalculateMigrationComplexity(ctx, server.CalculateMigrationComplexityRequestObject{
 					Id:   assessmentID,

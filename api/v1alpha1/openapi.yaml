@@ -970,6 +970,571 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /api/v1/identity:
+    get:
+      tags:
+        - account
+      description: Returns the authenticated user's profile. If a local account exists, returns stored user data. Otherwise returns a synthesized regular user.
+      operationId: getIdentity
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Identity"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/organizations:
+    get:
+      tags:
+        - account
+      description: List all organizations
+      operationId: listOrganizations
+      parameters:
+        - name: kind
+          in: query
+          description: Filter by organization kind
+          required: false
+          schema:
+            type: string
+            enum: [partner, admin]
+        - name: name
+          in: query
+          description: Filter by name (case-insensitive partial match)
+          required: false
+          schema:
+            type: string
+        - name: company
+          in: query
+          description: Filter by company (case-insensitive partial match)
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationList"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags:
+        - account
+      description: Create an organization
+      operationId: createOrganization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationCreate"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/organizations/{id}:
+    get:
+      tags:
+        - account
+      description: Get an organization by ID
+      operationId: getOrganization
+      parameters:
+        - name: id
+          in: path
+          description: ID of the organization
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags:
+        - account
+      description: Update an organization
+      operationId: updateOrganization
+      parameters:
+        - name: id
+          in: path
+          description: ID of the organization
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationUpdate"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - account
+      description: Delete an organization
+      operationId: deleteOrganization
+      parameters:
+        - name: id
+          in: path
+          description: ID of the organization
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/organizations/{id}/users:
+    get:
+      tags:
+        - account
+      description: List users in an organization
+      operationId: listOrganizationUsers
+      parameters:
+        - name: id
+          in: path
+          description: ID of the organization
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserList"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/organizations/{id}/users/{username}:
+    put:
+      tags:
+        - account
+      description: Add a user to an organization
+      operationId: addOrganizationUser
+      parameters:
+        - name: id
+          in: path
+          description: ID of the organization
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: username
+          in: path
+          description: Username of the user
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - account
+      description: Remove a user from an organization
+      operationId: removeOrganizationUser
+      parameters:
+        - name: id
+          in: path
+          description: ID of the organization
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: username
+          in: path
+          description: Username of the user
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/users:
+    get:
+      tags:
+        - account
+      description: List all users
+      operationId: listUsers
+      parameters:
+        - name: organizationId
+          in: query
+          description: Filter by organization ID
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: location
+          in: query
+          description: Filter by location
+          required: false
+          schema:
+            type: string
+            enum: [latam, emea, na, apac]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserList"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags:
+        - account
+      description: Create a user
+      operationId: createUser
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreate"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/users/{username}:
+    get:
+      tags:
+        - account
+      description: Get a user by username
+      operationId: getUser
+      parameters:
+        - name: username
+          in: path
+          description: Username of the user
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags:
+        - account
+      description: Update a user
+      operationId: updateUser
+      parameters:
+        - name: username
+          in: path
+          description: Username of the user
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - account
+      description: Delete a user
+      operationId: deleteUser
+      parameters:
+        - name: username
+          in: path
+          description: Username of the user
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /health:
     get:
       tags:
@@ -1733,6 +2298,217 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/Assessment"
+
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        kind:
+          type: string
+          enum: [partner, admin]
+        icon:
+          type: string
+          format: binary
+          nullable: true
+        company:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - kind
+        - company
+        - createdAt
+        - updatedAt
+
+    OrganizationCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: "required"
+        description:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: "required"
+        kind:
+          type: string
+          enum: [partner, admin]
+          x-oapi-codegen-extra-tags:
+            validate: "required,oneof=partner admin"
+        icon:
+          type: string
+          format: binary
+          nullable: true
+        company:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: "required"
+      required:
+        - name
+        - description
+        - kind
+        - company
+
+    OrganizationUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+          format: binary
+          nullable: true
+        company:
+          type: string
+
+    OrganizationList:
+      type: array
+      items:
+        $ref: "#/components/schemas/Organization"
+
+    User:
+      type: object
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        location:
+          type: string
+          enum: [latam, emea, na, apac]
+        title:
+          type: string
+        bio:
+          type: string
+        organizationId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - username
+        - organizationId
+        - email
+        - firstName
+        - lastName
+        - phone
+        - location
+        - createdAt
+
+    UserCreate:
+      type: object
+      properties:
+        username:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: "required"
+        email:
+          type: string
+          format: email
+          x-oapi-codegen-extra-tags:
+            validate: "required,email"
+        firstName:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: "required"
+        lastName:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: "required"
+        phone:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: "required"
+        location:
+          type: string
+          enum: [latam, emea, na, apac]
+          x-oapi-codegen-extra-tags:
+            validate: "required,oneof=latam emea na apac"
+        title:
+          type: string
+        bio:
+          type: string
+        organizationId:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+        - username
+        - email
+        - firstName
+        - lastName
+        - phone
+        - location
+
+    UserUpdate:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          x-oapi-codegen-extra-tags:
+            validate: "omitempty,email"
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        location:
+          type: string
+          enum: [latam, emea, na, apac]
+          x-oapi-codegen-extra-tags:
+            validate: "omitempty,oneof=latam emea na apac"
+        title:
+          type: string
+        bio:
+          type: string
+
+    Identity:
+      type: object
+      properties:
+        username:
+          type: string
+        kind:
+          type: string
+          enum: [partner, customer, regular, admin]
+        organizationId:
+          type: string
+      required:
+        - username
+        - kind
+        - organizationId
+
+    UserList:
+      type: array
+      items:
+        $ref: "#/components/schemas/User"
 
     ClusterRequirementsRequest:
       type: object

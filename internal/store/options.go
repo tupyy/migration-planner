@@ -1,6 +1,7 @@
 package store
 
 import (
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -158,4 +159,62 @@ func (o *AssessmentQueryOptions) WithOrder(order string) *AssessmentQueryOptions
 		return tx.Order(order)
 	})
 	return o
+}
+
+// Organization filters
+
+type OrganizationQueryFilter BaseQuerier
+
+func NewOrganizationQueryFilter() *OrganizationQueryFilter {
+	return &OrganizationQueryFilter{QueryFn: make([]func(tx *gorm.DB) *gorm.DB, 0)}
+}
+
+func (f *OrganizationQueryFilter) ByKind(kind string) *OrganizationQueryFilter {
+	f.QueryFn = append(f.QueryFn, func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("kind = ?", kind)
+	})
+	return f
+}
+
+func (f *OrganizationQueryFilter) ByParentID(id uuid.UUID) *OrganizationQueryFilter {
+	f.QueryFn = append(f.QueryFn, func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("parent_id = ?", id)
+	})
+	return f
+}
+
+func (f *OrganizationQueryFilter) ByName(name string) *OrganizationQueryFilter {
+	f.QueryFn = append(f.QueryFn, func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("name ILIKE ?", "%"+name+"%")
+	})
+	return f
+}
+
+func (f *OrganizationQueryFilter) ByCompany(company string) *OrganizationQueryFilter {
+	f.QueryFn = append(f.QueryFn, func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("company ILIKE ?", "%"+company+"%")
+	})
+	return f
+}
+
+// User filters
+
+type UserQueryFilter BaseQuerier
+
+func NewUserQueryFilter() *UserQueryFilter {
+	return &UserQueryFilter{QueryFn: make([]func(tx *gorm.DB) *gorm.DB, 0)}
+}
+
+func (f *UserQueryFilter) ByOrganizationID(id uuid.UUID) *UserQueryFilter {
+	f.QueryFn = append(f.QueryFn, func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("organization_id = ?", id)
+	})
+	return f
+}
+
+func (f *UserQueryFilter) ByLocation(location string) *UserQueryFilter {
+	f.QueryFn = append(f.QueryFn, func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("location = ?", location)
+	})
+	return f
 }

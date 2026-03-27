@@ -47,6 +47,14 @@ const (
 	MemoryOneToTwo  ClusterRequirementsRequestMemoryOverCommitRatio = "1:2"
 )
 
+// Defines values for IdentityKind.
+const (
+	IdentityKindAdmin    IdentityKind = "admin"
+	IdentityKindCustomer IdentityKind = "customer"
+	IdentityKindPartner  IdentityKind = "partner"
+	IdentityKindRegular  IdentityKind = "regular"
+)
+
 // Defines values for JobStatus.
 const (
 	Cancelled  JobStatus = "cancelled"
@@ -63,6 +71,56 @@ const (
 	Dvswitch    NetworkType = "dvswitch"
 	Standard    NetworkType = "standard"
 	Unsupported NetworkType = "unsupported"
+)
+
+// Defines values for OrganizationKind.
+const (
+	OrganizationKindAdmin   OrganizationKind = "admin"
+	OrganizationKindPartner OrganizationKind = "partner"
+)
+
+// Defines values for OrganizationCreateKind.
+const (
+	OrganizationCreateKindAdmin   OrganizationCreateKind = "admin"
+	OrganizationCreateKindPartner OrganizationCreateKind = "partner"
+)
+
+// Defines values for UserLocation.
+const (
+	UserLocationApac  UserLocation = "apac"
+	UserLocationEmea  UserLocation = "emea"
+	UserLocationLatam UserLocation = "latam"
+	UserLocationNa    UserLocation = "na"
+)
+
+// Defines values for UserCreateLocation.
+const (
+	UserCreateLocationApac  UserCreateLocation = "apac"
+	UserCreateLocationEmea  UserCreateLocation = "emea"
+	UserCreateLocationLatam UserCreateLocation = "latam"
+	UserCreateLocationNa    UserCreateLocation = "na"
+)
+
+// Defines values for UserUpdateLocation.
+const (
+	UserUpdateLocationApac  UserUpdateLocation = "apac"
+	UserUpdateLocationEmea  UserUpdateLocation = "emea"
+	UserUpdateLocationLatam UserUpdateLocation = "latam"
+	UserUpdateLocationNa    UserUpdateLocation = "na"
+)
+
+// Defines values for ListOrganizationsParamsKind.
+const (
+	ListOrganizationsParamsKindAdmin   ListOrganizationsParamsKind = "admin"
+	ListOrganizationsParamsKindPartner ListOrganizationsParamsKind = "partner"
+)
+
+// Defines values for ListUsersParamsLocation.
+const (
+	ListUsersParamsLocationApac  ListUsersParamsLocation = "apac"
+	ListUsersParamsLocationEmea  ListUsersParamsLocation = "emea"
+	ListUsersParamsLocationLatam ListUsersParamsLocation = "latam"
+	ListUsersParamsLocationNa    ListUsersParamsLocation = "na"
 )
 
 // Agent defines model for Agent.
@@ -306,6 +364,16 @@ type Host struct {
 	Vendor   string `json:"vendor"`
 }
 
+// Identity defines model for Identity.
+type Identity struct {
+	Kind           IdentityKind `json:"kind"`
+	OrganizationId string       `json:"organizationId"`
+	Username       string       `json:"username"`
+}
+
+// IdentityKind defines model for Identity.Kind.
+type IdentityKind string
+
 // Info OpenShift Migration Advisor information
 type Info struct {
 	// AgentGitCommit Agent git commit hash
@@ -479,6 +547,44 @@ type Network struct {
 // NetworkType defines model for Network.Type.
 type NetworkType string
 
+// Organization defines model for Organization.
+type Organization struct {
+	Company     string              `json:"company"`
+	CreatedAt   time.Time           `json:"createdAt"`
+	Description *string             `json:"description,omitempty"`
+	Icon        *openapi_types.File `json:"icon"`
+	Id          openapi_types.UUID  `json:"id"`
+	Kind        OrganizationKind    `json:"kind"`
+	Name        string              `json:"name"`
+	UpdatedAt   time.Time           `json:"updatedAt"`
+}
+
+// OrganizationKind defines model for Organization.Kind.
+type OrganizationKind string
+
+// OrganizationCreate defines model for OrganizationCreate.
+type OrganizationCreate struct {
+	Company     string                 `json:"company" validate:"required"`
+	Description string                 `json:"description" validate:"required"`
+	Icon        *openapi_types.File    `json:"icon"`
+	Kind        OrganizationCreateKind `json:"kind" validate:"required,oneof=partner admin"`
+	Name        string                 `json:"name" validate:"required"`
+}
+
+// OrganizationCreateKind defines model for OrganizationCreate.Kind.
+type OrganizationCreateKind string
+
+// OrganizationList defines model for OrganizationList.
+type OrganizationList = []Organization
+
+// OrganizationUpdate defines model for OrganizationUpdate.
+type OrganizationUpdate struct {
+	Company     *string             `json:"company,omitempty"`
+	Description *string             `json:"description,omitempty"`
+	Icon        *openapi_types.File `json:"icon"`
+	Name        *string             `json:"name,omitempty"`
+}
+
 // SchemaEstimationResult Estimation results for a single schema
 type SchemaEstimationResult struct {
 	// Breakdown Per-calculator results
@@ -594,6 +700,57 @@ type UpdateInventory struct {
 	Inventory Inventory          `json:"inventory"`
 }
 
+// User defines model for User.
+type User struct {
+	Bio            *string             `json:"bio,omitempty"`
+	CreatedAt      time.Time           `json:"createdAt"`
+	Email          openapi_types.Email `json:"email"`
+	FirstName      string              `json:"firstName"`
+	LastName       string              `json:"lastName"`
+	Location       UserLocation        `json:"location"`
+	OrganizationId openapi_types.UUID  `json:"organizationId"`
+	Phone          string              `json:"phone"`
+	Title          *string             `json:"title,omitempty"`
+	UpdatedAt      *time.Time          `json:"updatedAt,omitempty"`
+	Username       string              `json:"username"`
+}
+
+// UserLocation defines model for User.Location.
+type UserLocation string
+
+// UserCreate defines model for UserCreate.
+type UserCreate struct {
+	Bio            *string             `json:"bio,omitempty"`
+	Email          openapi_types.Email `json:"email" validate:"required,email"`
+	FirstName      string              `json:"firstName" validate:"required"`
+	LastName       string              `json:"lastName" validate:"required"`
+	Location       UserCreateLocation  `json:"location" validate:"required,oneof=latam emea na apac"`
+	OrganizationId *openapi_types.UUID `json:"organizationId"`
+	Phone          string              `json:"phone" validate:"required"`
+	Title          *string             `json:"title,omitempty"`
+	Username       string              `json:"username" validate:"required"`
+}
+
+// UserCreateLocation defines model for UserCreate.Location.
+type UserCreateLocation string
+
+// UserList defines model for UserList.
+type UserList = []User
+
+// UserUpdate defines model for UserUpdate.
+type UserUpdate struct {
+	Bio       *string              `json:"bio,omitempty"`
+	Email     *openapi_types.Email `json:"email,omitempty" validate:"omitempty,email"`
+	FirstName *string              `json:"firstName,omitempty"`
+	LastName  *string              `json:"lastName,omitempty"`
+	Location  *UserUpdateLocation  `json:"location,omitempty" validate:"omitempty,oneof=latam emea na apac"`
+	Phone     *string              `json:"phone,omitempty"`
+	Title     *string              `json:"title,omitempty"`
+}
+
+// UserUpdateLocation defines model for UserUpdate.Location.
+type UserUpdateLocation string
+
 // VCenter defines model for VCenter.
 type VCenter struct {
 	Id string `json:"id"`
@@ -706,6 +863,33 @@ type ListAssessmentsParams struct {
 	SourceId *openapi_types.UUID `form:"sourceId,omitempty" json:"sourceId,omitempty"`
 }
 
+// ListOrganizationsParams defines parameters for ListOrganizations.
+type ListOrganizationsParams struct {
+	// Kind Filter by organization kind
+	Kind *ListOrganizationsParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
+
+	// Name Filter by name (case-insensitive partial match)
+	Name *string `form:"name,omitempty" json:"name,omitempty"`
+
+	// Company Filter by company (case-insensitive partial match)
+	Company *string `form:"company,omitempty" json:"company,omitempty"`
+}
+
+// ListOrganizationsParamsKind defines parameters for ListOrganizations.
+type ListOrganizationsParamsKind string
+
+// ListUsersParams defines parameters for ListUsers.
+type ListUsersParams struct {
+	// OrganizationId Filter by organization ID
+	OrganizationId *openapi_types.UUID `form:"organizationId,omitempty" json:"organizationId,omitempty"`
+
+	// Location Filter by location
+	Location *ListUsersParamsLocation `form:"location,omitempty" json:"location,omitempty"`
+}
+
+// ListUsersParamsLocation defines parameters for ListUsers.
+type ListUsersParamsLocation string
+
 // CreateAssessmentJSONRequestBody defines body for CreateAssessment for application/json ContentType.
 type CreateAssessmentJSONRequestBody = AssessmentForm
 
@@ -724,6 +908,12 @@ type CalculateMigrationComplexityJSONRequestBody = MigrationComplexityRequest
 // CalculateMigrationEstimationJSONRequestBody defines body for CalculateMigrationEstimation for application/json ContentType.
 type CalculateMigrationEstimationJSONRequestBody = MigrationEstimationRequest
 
+// CreateOrganizationJSONRequestBody defines body for CreateOrganization for application/json ContentType.
+type CreateOrganizationJSONRequestBody = OrganizationCreate
+
+// UpdateOrganizationJSONRequestBody defines body for UpdateOrganization for application/json ContentType.
+type UpdateOrganizationJSONRequestBody = OrganizationUpdate
+
 // CreateSourceJSONRequestBody defines body for CreateSource for application/json ContentType.
 type CreateSourceJSONRequestBody = SourceCreate
 
@@ -732,3 +922,9 @@ type UpdateSourceJSONRequestBody = SourceUpdate
 
 // UpdateInventoryJSONRequestBody defines body for UpdateInventory for application/json ContentType.
 type UpdateInventoryJSONRequestBody = UpdateInventory
+
+// CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
+type CreateUserJSONRequestBody = UserCreate
+
+// UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
+type UpdateUserJSONRequestBody = UserUpdate
