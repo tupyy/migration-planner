@@ -140,7 +140,8 @@ func (s *AccountsService) ListGroupMembers(ctx context.Context, groupID uuid.UUI
 	return s.store.Accounts().ListMembers(ctx, store.NewMemberQueryFilter().ByGroupID(groupID))
 }
 
-// CreateMember creates a new member. Verifies the group exists.
+// CreateMember creates a new member. Verifies the group exists and the user
+// has no active customer relationship (pending or accepted).
 func (s *AccountsService) CreateMember(ctx context.Context, member model.Member) (model.Member, error) {
 	if _, err := s.GetGroup(ctx, member.GroupID); err != nil {
 		return model.Member{}, err
@@ -153,6 +154,15 @@ func (s *AccountsService) CreateMember(ctx context.Context, member model.Member)
 	defer func() {
 		_, _ = store.Rollback(ctx)
 	}()
+
+	active, err := s.store.PartnerCustomer().List(ctx,
+		store.NewPartnerQueryFilter().ByUsername(member.Username).ByActiveStatus())
+	if err != nil {
+		return model.Member{}, err
+	}
+	if len(active) > 0 {
+		return model.Member{}, NewErrActiveRequestExists(member.Username)
+	}
 
 	created, err := s.store.Accounts().CreateMember(ctx, member)
 	if err != nil {
@@ -212,6 +222,14 @@ func (s *AccountsService) UpdateGroupMember(ctx context.Context, groupID uuid.UU
 // RemoveGroupMember removes a member from the specified group.
 // Since a backend member must always belong to a group, this deletes the member.
 func (s *AccountsService) RemoveGroupMember(ctx context.Context, groupID uuid.UUID, username string) error {
+	ctx, err := s.store.NewTransactionContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_, _ = store.Rollback(ctx)
+	}()
+
 	if _, err := s.GetGroup(ctx, groupID); err != nil {
 		return err
 	}
@@ -224,14 +242,6 @@ func (s *AccountsService) RemoveGroupMember(ctx context.Context, groupID uuid.UU
 	if member.GroupID != groupID {
 		return NewErrMembershipMismatch(username, groupID)
 	}
-
-	ctx, err = s.store.NewTransactionContext(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_, _ = store.Rollback(ctx)
-	}()
 
 	if err := s.store.Accounts().DeleteMember(ctx, member.ID); err != nil {
 		return err
